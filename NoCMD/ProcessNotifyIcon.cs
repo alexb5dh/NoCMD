@@ -48,7 +48,7 @@ namespace NoCMD
         public string Text
         {
             get { return _internal.Text; }
-            set { _internal.Text = value.Truncate(64, "..."); }
+            set { _internal.Text = value.Truncate(63, "..."); }
         }
 
         public void AddContextMenuItem(string text, EventHandler onClick)
