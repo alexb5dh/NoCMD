@@ -92,8 +92,11 @@ namespace NoCMD
 
             _runConfigurations.Add((process, icon) => AddTooltip(process, icon, config.Command));
             _runConfigurations.Add((process, icon) => AddErrorBalloon(process, icon));
-            if (config.OutFileName != null) _runConfigurations.Add((process, icon) => AddStandardOutput(process, icon, config.OutFileName));
-            if (config.ErrorFileName != null) _runConfigurations.Add((process, icon) => AddErrorOutput(process, icon, config.ErrorFileName));
+
+            if (config.OutFileName != null)
+                _runConfigurations.Add((process, icon) => AddStandardOutput(process, icon, config.OutFileName));
+            if (config.ErrorFileName != null)
+                _runConfigurations.Add((process, icon) => AddErrorOutput(process, icon, config.ErrorFileName));
         }
 
         public void Run()

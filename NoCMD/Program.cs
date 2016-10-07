@@ -9,12 +9,12 @@ namespace NoCMD
 {
     internal static class Program
     {
-        [DllImport("kernel32.dll")]
-        private static extern IntPtr GetConsoleWindow();
-
         private static bool IsConsoleAttached()
         {
-            return GetConsoleWindow() != IntPtr.Zero;
+            var attached = true;
+            try { GC.KeepAlive(Console.WindowHeight); }
+            catch { attached = false; }
+            return attached;
         }
 
         private static void RunWrapper(Config config)
@@ -29,18 +29,16 @@ namespace NoCMD
         }
 
         [STAThread]
-        static int Main(string[] args)
+        private static int Main(string[] args)
         {
             try
             {
                 var config = Config.ParseCommandLine(args);
 
-                if (config.Wait)
+                if (config.WaitForExit)
                 {
-                    var app = new NoCMDApplication(config);
-                    app.Run();
+                    new NoCMDApplication(config).Run();
                 }
-
                 else
                 {
                     RunWrapper(config);

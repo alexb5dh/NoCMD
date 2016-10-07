@@ -9,8 +9,8 @@ namespace NoCMD
         {
             { "", nameof(Command) },
 
-            { "/w", nameof(Wait) },
-            { "/wait", nameof(Wait) },
+            { "/w", nameof(WaitForExit) },
+            { "/wait", nameof(WaitForExit) },
 
             { "/o", nameof(OutFileName) },
             { "/out", nameof(OutFileName) },
@@ -22,7 +22,7 @@ namespace NoCMD
         private static readonly Dictionary<string, bool> IsValueNeeded = new Dictionary<string, bool>
         {
             { nameof(Command), true },
-            { nameof(Wait), false },
+            { nameof(WaitForExit), false },
             { nameof(OutFileName), true },
             { nameof(ErrorFileName), true }
         };
@@ -61,7 +61,7 @@ namespace NoCMD
             return new Config()
             {
                 Command = values[nameof(Command)],
-                Wait = values.ContainsKey(nameof(Wait)),
+                WaitForExit = values.ContainsKey(nameof(WaitForExit)),
                 OutFileName = values.TryGetValue(nameof(OutFileName), null),
                 ErrorFileName = values.TryGetValue(nameof(ErrorFileName), null)
             };
@@ -73,6 +73,6 @@ namespace NoCMD
 
         public string ErrorFileName { get; private set; }
 
-        public bool Wait { get; private set; }
+        public bool WaitForExit { get; private set; }
     }
 }
