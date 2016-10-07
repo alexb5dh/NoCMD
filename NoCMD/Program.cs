@@ -7,6 +7,7 @@ using System.Windows.Forms;
 using System.IO;
 using System.Reflection;
 using System.Text;
+using NoCMD.Extensions;
 
 namespace NoCMD
 {
@@ -20,31 +21,33 @@ namespace NoCMD
             return GetConsoleWindow() != IntPtr.Zero;
         }
 
-        private static void AddRunningTimeDisplay(Process process, ProcessTrayIcon trayIcon)
+        private static void AddTooltip(Process process, ProcessTrayIcon trayIcon, string command)
         {
-            //var watch = new Stopwatch();
-            //watch.Start();
-
             var timer = new Timer
             {
                 Interval = 1000
             };
-            timer.Tick +=
-                delegate { trayIcon.Notify.Text = "Running: " + (DateTime.Now - process.StartTime).ToString(@"d' days 'hh\:mm\:ss"); };
+            timer.Tick += delegate
+            {
+                var fullText = "Running: " + (DateTime.Now - process.StartTime).ToString(@"d' days 'hh\:mm\:ss") + "\n" +
+                               "Command: " + command;
+                trayIcon.Notify.Text = fullText.Truncate(64, "...");
+            };
 
             timer.Start();
         }
 
-        private static void AddCommandDisplay(Process process, ProcessTrayIcon trayIcon, string command)
+        private static void AddErrorBalloon(Process process, ProcessTrayIcon trayIcon)
         {
-            trayIcon.Notify.BalloonTipTitle = "Command";
-            trayIcon.Notify.BalloonTipText = command;
-            trayIcon.Notify.BalloonTipIcon = ToolTipIcon.Info;
-
-            trayIcon.Notify.MouseClick += (obj, e) =>
+            process.ErrorDataReceived += (sender, e) => trayIcon.ShowBalloonTip("Error", e.Data, ToolTipIcon.Error);
+            try
             {
-                if (e.Button == MouseButtons.Left) trayIcon.Notify.ShowBalloonTip(0);
-            };
+                process.BeginErrorReadLine();
+            }
+            catch (InvalidOperationException)
+            {
+                /* ignored */
+            }
         }
 
         private static void RunApplication(Process process, ProcessTrayIcon trayIcon)
@@ -60,29 +63,40 @@ namespace NoCMD
             Application.Run();
         }
 
-        // Todo: simplify AddStandartOutput
-        private static void AddStandartOutput(Process process, ProcessTrayIcon trayIcon, string fileName)
+        private static void AddStandardOutput(Process process, ProcessTrayIcon trayIcon, string fileName)
         {
-            var writer = new StreamWriter(fileName, true) { AutoFlush = true };
+            var writer = new StreamWriter(fileName) { AutoFlush = true };
             process.OutputDataReceived += (sender, e) => writer.WriteLine(e.Data);
-            process.BeginOutputReadLine();
+
+            try
+            {
+                process.BeginOutputReadLine();
+            }
+            catch (InvalidOperationException)
+            {
+                /* ignored */
+            }
 
             var menuItems = trayIcon.Notify.ContextMenu.MenuItems;
-            menuItems.Add(0, new MenuItem("Open &output", delegate { Process.Start(Path.GetFullPath(fileName)); }));
+            menuItems.Add(0, new MenuItem("Open &output file", delegate { Process.Start(Path.GetFullPath(fileName)); }));
         }
 
-        private static void AddErrorOutput(Process process, ProcessTrayIcon trayIcon)
+        private static void AddErrorOutput(Process process, ProcessTrayIcon trayIcon, string fileName)
         {
-            var errorBuilder = new StringBuilder();
+            var writer = new StreamWriter(fileName) { AutoFlush = true };
+            process.ErrorDataReceived += (sender, e) => writer.WriteLine(e.Data);
 
-            process.ErrorDataReceived += (sender, e) => errorBuilder.Append(e.Data);
-            process.BeginErrorReadLine();
-
-            process.Exited += delegate
+            try
             {
-                var error = errorBuilder.ToString();
-                if (!string.IsNullOrEmpty(error)) MessageBox.Show(error, "NoCMD - Error");
-            };
+                process.BeginOutputReadLine();
+            }
+            catch (InvalidOperationException)
+            {
+                /* ignored */
+            }
+
+            var menuItems = trayIcon.Notify.ContextMenu.MenuItems;
+            menuItems.Add(0, new MenuItem("Open &error file", delegate { Process.Start(Path.GetFullPath(fileName)); }));
         }
 
         [STAThread]
@@ -103,6 +117,7 @@ namespace NoCMD
                         CreateNoWindow = true,
                         UseShellExecute = false
                     });
+
                     return 0;
                 }
 
@@ -120,10 +135,10 @@ namespace NoCMD
 
                 var icon = new ProcessTrayIcon(process);
 
-                if (config.OutFileName != null) AddStandartOutput(process, icon, config.OutFileName);
-                AddErrorOutput(process, icon);
-                AddRunningTimeDisplay(process, icon);
-                AddCommandDisplay(process, icon, config.Command);
+                if (config.OutFileName != null) AddStandardOutput(process, icon, config.OutFileName);
+                if (config.ErrorFileName != null) AddErrorOutput(process, icon, config.ErrorFileName);
+                AddErrorBalloon(process, icon);
+                AddTooltip(process, icon, config.Command);
 
                 RunApplication(process, icon);
 

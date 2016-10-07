@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Windows.Forms;
 
 namespace NoCMD
@@ -14,6 +15,7 @@ namespace NoCMD
         {
             Notify = new NotifyIcon
             {
+                Text = Path.GetFileNameWithoutExtension(process.MainModule.ModuleName),
                 Icon = Icon.ExtractAssociatedIcon(process.MainModule.FileName),
                 ContextMenu = new ContextMenu
                 {
@@ -31,6 +33,15 @@ namespace NoCMD
                     }
                 }
             };
+        }
+
+        public void ShowBalloonTip(string title, string text, ToolTipIcon icon)
+        {
+            Notify.BalloonTipTitle = title;
+            Notify.BalloonTipText = text;
+            Notify.BalloonTipIcon = icon;
+
+            Notify.ShowBalloonTip(3000); // 'timeout' not used since Vista
         }
 
         public void Show()

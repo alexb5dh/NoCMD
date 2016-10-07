@@ -8,17 +8,23 @@ namespace NoCMD
         private static readonly Dictionary<string, string> Switches = new Dictionary<string, string>
         {
             { "", nameof(Command) },
+
+            { "/w", nameof(Wait) },
+            { "/wait", nameof(Wait) },
+
             { "/o", nameof(OutFileName) },
             { "/out", nameof(OutFileName) },
-            { "/w", nameof(Wait) },
-            { "/wait", nameof(Wait) }
+
+            { "/e", nameof(ErrorFileName) },
+            { "/error", nameof(ErrorFileName) }
         };
 
         private static readonly Dictionary<string, bool> IsValueNeeded = new Dictionary<string, bool>
         {
             { nameof(Command), true },
+            { nameof(Wait), false },
             { nameof(OutFileName), true },
-            { nameof(Wait), false }
+            { nameof(ErrorFileName), true }
         };
 
         public static Config ParseCommandLine(string[] args)
@@ -55,14 +61,17 @@ namespace NoCMD
             return new Config()
             {
                 Command = values[nameof(Command)],
+                Wait = values.ContainsKey(nameof(Wait)),
                 OutFileName = values.TryGetValue(nameof(OutFileName), null),
-                Wait = values.ContainsKey(nameof(Wait))
+                ErrorFileName = values.TryGetValue(nameof(ErrorFileName), null)
             };
         }
 
         public string Command { get; private set; }
 
         public string OutFileName { get; private set; }
+
+        public string ErrorFileName { get; private set; }
 
         public bool Wait { get; private set; }
     }
