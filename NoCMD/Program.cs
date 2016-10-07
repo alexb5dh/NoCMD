@@ -61,21 +61,14 @@ namespace NoCMD
         }
 
         // Todo: simplify AddStandartOutput
-        private static void AddStandartOutput(Process process, ProcessTrayIcon trayIcon)
+        private static void AddStandartOutput(Process process, ProcessTrayIcon trayIcon, string fileName)
         {
-            foreach (var fileName in new[] { "nocmd.log", "nocmd.txt" })
-            {
-                if (!File.Exists(fileName)) continue;
+            var writer = new StreamWriter(fileName, true) { AutoFlush = true };
+            process.OutputDataReceived += (sender, e) => writer.WriteLine(e.Data);
+            process.BeginOutputReadLine();
 
-                var writer = new StreamWriter(fileName, true) { AutoFlush = true };
-                process.OutputDataReceived += (sender, e) => writer.WriteLine(e.Data);
-                process.BeginOutputReadLine();
-
-                var menuItems = trayIcon.Notify.ContextMenu.MenuItems;
-                menuItems.Add(0, new MenuItem("Open &output", delegate { Process.Start(Path.GetFullPath(fileName)); }));
-
-                break;
-            }
+            var menuItems = trayIcon.Notify.ContextMenu.MenuItems;
+            menuItems.Add(0, new MenuItem("Open &output", delegate { Process.Start(Path.GetFullPath(fileName)); }));
         }
 
         private static void AddErrorOutput(Process process, ProcessTrayIcon trayIcon)
@@ -97,35 +90,25 @@ namespace NoCMD
         {
             try
             {
-                IEnumerable<string> arguments = args;
-                var startNew = true;
+                var config = Config.ParseCommandLine(args);
 
-                if (args.FirstOrDefault() == "/w" || args.FirstOrDefault() == "/wait")
+                if (!config.Wait)
                 {
-                    startNew = false;
-                    arguments = args.Skip(1);
-                }
-
-                if (!arguments.Any())
-                {
-                    throw new ArgumentException("Command line is empty.");
-                }
-
-                var command = string.Join(" ", arguments);
-
-                if (startNew)
-                {
+                    Console.WriteLine(string.Join(", ", args));
+                    Console.ReadLine();
                     Process.Start(new ProcessStartInfo
                     {
                         FileName = Assembly.GetEntryAssembly().Location,
-                        Arguments = "/wait " + command,
+                        Arguments = "/wait " + "\"" + config.Command + "\"",
                         CreateNoWindow = true,
                         UseShellExecute = false
                     });
                     return 0;
                 }
 
-                var processInfo = new ProcessStartInfo(Environment.ExpandEnvironmentVariables("%comspec%"), "/s /c " + "\"" + command + "\"")
+                var processInfo = new ProcessStartInfo(
+                    Environment.ExpandEnvironmentVariables("%comspec%"),
+                    "/s /c " + "\"" + config.Command + "\"")
                 {
                     UseShellExecute = false,
                     CreateNoWindow = true,
@@ -134,12 +117,13 @@ namespace NoCMD
                 };
 
                 var process = Process.Start(processInfo);
+
                 var icon = new ProcessTrayIcon(process);
 
-                AddStandartOutput(process, icon);
+                if (config.OutFileName != null) AddStandartOutput(process, icon, config.OutFileName);
                 AddErrorOutput(process, icon);
                 AddRunningTimeDisplay(process, icon);
-                AddCommandDisplay(process, icon, command);
+                AddCommandDisplay(process, icon, config.Command);
 
                 RunApplication(process, icon);
 
