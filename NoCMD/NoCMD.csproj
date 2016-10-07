@@ -57,6 +57,10 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <None Include="Tests\out.bat" />
+    <None Include="Tests\error.bat" />
+    <None Include="Tests\waiting.error.bat" />
+    <None Include="Tests\waiting.out.bat" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
