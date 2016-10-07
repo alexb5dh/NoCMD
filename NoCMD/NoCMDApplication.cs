@@ -33,7 +33,11 @@ namespace NoCMD
 
         private static void AddErrorBalloon(Process process, ProcessTrayIcon trayIcon)
         {
-            process.ErrorDataReceived += (sender, e) => trayIcon.ShowBalloonTip("Error", e.Data, ToolTipIcon.Error);
+            process.ErrorDataReceived += (sender, e) =>
+            {
+                if (!string.IsNullOrEmpty(e.Data)) trayIcon.ShowBalloonTip("Error", e.Data, ToolTipIcon.Error);
+            };
+
             try
             {
                 process.BeginErrorReadLine();
