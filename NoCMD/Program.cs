@@ -34,14 +34,13 @@ namespace NoCMD
             {
                 var config = Config.ParseCommandLine(args);
 
+                if (string.IsNullOrEmpty(config.Command))
+                    return 0; // Todo: add help output
+
                 if (config.WaitForExit)
-                {
                     new NoCMDApplication(config).Run();
-                }
                 else
-                {
                     RunWrapper(string.Join(" ", args.Select(arg => "\"" + arg + "\"")));
-                }
 
                 return 0;
             }
