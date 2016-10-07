@@ -3,17 +3,18 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
+using NoCMD.Extensions;
 
 namespace NoCMD
 {
-    public class ProcessTrayIcon
+    public sealed class ProcessTrayIcon: IDisposable
     {
         // Todo: rename Notify
-        public readonly NotifyIcon Notify;
+        private readonly NotifyIcon _internal;
 
         public ProcessTrayIcon(Process process)
         {
-            Notify = new NotifyIcon
+            _internal = new NotifyIcon
             {
                 Text = Path.GetFileNameWithoutExtension(process.MainModule.ModuleName),
                 Icon = Icon.ExtractAssociatedIcon(process.MainModule.FileName),
@@ -37,16 +38,32 @@ namespace NoCMD
 
         public void ShowBalloonTip(string title, string text, ToolTipIcon icon)
         {
-            Notify.BalloonTipTitle = title;
-            Notify.BalloonTipText = text;
-            Notify.BalloonTipIcon = icon;
+            _internal.BalloonTipTitle = title;
+            _internal.BalloonTipText = text;
+            _internal.BalloonTipIcon = icon;
 
-            Notify.ShowBalloonTip(3000); // 'timeout' not used since Vista
+            _internal.ShowBalloonTip(3000); // 'timeout' not used since Vista
+        }
+
+        public string Text
+        {
+            get { return _internal.Text; }
+            set { _internal.Text = value.Truncate(64, "..."); }
+        }
+
+        public void AddContextMenuItem(string text, EventHandler onClick)
+        {
+            _internal.ContextMenu.MenuItems.Add(0, new MenuItem(text, onClick));
         }
 
         public void Show()
         {
-            Notify.Visible = true;
+            _internal.Visible = true;
+        }
+
+        public void Dispose()
+        {
+            _internal.Dispose();
         }
     }
 }

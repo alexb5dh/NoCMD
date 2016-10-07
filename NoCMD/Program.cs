@@ -29,9 +29,8 @@ namespace NoCMD
             };
             timer.Tick += delegate
             {
-                var fullText = "Running: " + (DateTime.Now - process.StartTime).ToString(@"d' days 'hh\:mm\:ss") + "\n" +
-                               "Command: " + command;
-                trayIcon.Notify.Text = fullText.Truncate(64, "...");
+                trayIcon.Text = "Running: " + (DateTime.Now - process.StartTime).ToString(@"d' days 'hh\:mm\:ss") + "\n" +
+                                "Command: " + command;
             };
 
             timer.Start();
@@ -55,7 +54,7 @@ namespace NoCMD
             process.EnableRaisingEvents = true;
             process.Exited += delegate
             {
-                trayIcon.Notify.Dispose();
+                trayIcon.Dispose();
                 Application.Exit();
             };
 
@@ -77,8 +76,7 @@ namespace NoCMD
                 /* ignored */
             }
 
-            var menuItems = trayIcon.Notify.ContextMenu.MenuItems;
-            menuItems.Add(0, new MenuItem("Open &output file", delegate { Process.Start(Path.GetFullPath(fileName)); }));
+            trayIcon.AddContextMenuItem("Open &output file", delegate { Process.Start(Path.GetFullPath(fileName)); });
         }
 
         private static void AddErrorOutput(Process process, ProcessTrayIcon trayIcon, string fileName)
@@ -95,8 +93,7 @@ namespace NoCMD
                 /* ignored */
             }
 
-            var menuItems = trayIcon.Notify.ContextMenu.MenuItems;
-            menuItems.Add(0, new MenuItem("Open &error file", delegate { Process.Start(Path.GetFullPath(fileName)); }));
+            trayIcon.AddContextMenuItem("Open &error file", delegate { Process.Start(Path.GetFullPath(fileName)); });
         }
 
         [STAThread]
