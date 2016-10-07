@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
+using System.Linq;
 using System.Windows.Forms;
-using System.Reflection;
 using NoCMD.Exceptions;
 
 namespace NoCMD
@@ -17,12 +16,12 @@ namespace NoCMD
             return attached;
         }
 
-        private static void RunWrapper(Config config)
+        private static void RunWrapper(string commandLine)
         {
             Process.Start(new ProcessStartInfo
             {
-                FileName = Assembly.GetEntryAssembly().Location,
-                Arguments = "/wait " + "\"" + config.Command + "\"",
+                FileName = Process.GetCurrentProcess().MainModule.FileName,
+                Arguments = "/wait " + commandLine,
                 CreateNoWindow = true,
                 UseShellExecute = false
             });
@@ -41,7 +40,7 @@ namespace NoCMD
                 }
                 else
                 {
-                    RunWrapper(config);
+                    RunWrapper(string.Join(" ", args.Select(arg => "\"" + arg + "\"")));
                 }
 
                 return 0;
