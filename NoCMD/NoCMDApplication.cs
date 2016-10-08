@@ -1,90 +1,125 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using NoCMD.Exceptions;
 
 namespace NoCMD
 {
-    public sealed class NoCMDApplication
+    // Todo: implement Dispose for Application
+    public sealed class NoCMDApplication : IMessageFilter
     {
-        private readonly ProcessStartInfo _startInfo;
+        private readonly Process _process;
 
-        private readonly IList<Action<Process, ProcessTrayIcon>> _runConfigurations = new List<Action<Process, ProcessTrayIcon>>();
+        private readonly ProcessTrayIcon _icon;
 
-        private static void AddTooltip(Process process, ProcessTrayIcon trayIcon, string command)
+        private bool _running;
+
+        private void AddTooltip(Process process, ProcessTrayIcon trayIcon, string command)
         {
             var timer = new Timer
             {
                 Interval = 1000
             };
+
             timer.Tick += delegate
             {
                 trayIcon.Text = "Running: " + (DateTime.Now - process.StartTime).ToString(@"d' days 'hh\:mm\:ss") + "\n" +
                                 "Command: " + command;
             };
 
-            process.EnableRaisingEvents = true;
-            process.Exited += delegate { timer.Dispose(); };
+            Starting += delegate
+            {
+                timer.Start();
+            };
 
-            timer.Start();
+            Exiting += delegate
+            {
+                timer.Stop();
+                timer.Dispose();
+            };
         }
 
-        private static void AddErrorBalloon(Process process, ProcessTrayIcon trayIcon)
+        private void AddErrorBalloon(Process process, ProcessTrayIcon trayIcon)
         {
             process.ErrorDataReceived += (sender, e) =>
             {
-                if (!string.IsNullOrEmpty(e.Data)) trayIcon.ShowBalloonTip("Error", e.Data, ToolTipIcon.Error);
+                if (!string.IsNullOrEmpty(e.Data)) trayIcon.ShowBalloonTip("NoCMD", e.Data, ToolTipIcon.Error);
             };
-
-            try
-            {
-                process.BeginErrorReadLine();
-            }
-            catch (InvalidOperationException)
-            {
-                /* ignored */
-            }
         }
 
-        private static void AddStandardOutput(Process process, ProcessTrayIcon trayIcon, string fileName)
+        private void AddExitCodeBalloon(Process process, ProcessTrayIcon trayIcon)
+        {
+            process.Exited += delegate
+            {
+                trayIcon.ShowBalloonTip("NoCMD: Exit code", process.ExitCode.ToString(),
+                    process.ExitCode == 0 ? ToolTipIcon.Info : ToolTipIcon.Error);
+            };
+        }
+
+        private void AddStandardOutput(Process process, ProcessTrayIcon trayIcon, string fileName)
         {
             var writer = new StreamWriter(fileName) { AutoFlush = true };
-            process.OutputDataReceived += (sender, e) => writer.WriteLine(e.Data);
+            process.OutputDataReceived += (sender, e) =>
+            {
+                if (!string.IsNullOrEmpty(e.Data))
+                    writer.WriteLine(e.Data);
+            };
 
-            try
-            {
-                process.BeginOutputReadLine();
-            }
-            catch (InvalidOperationException)
-            {
-                /* ignored */
-            }
+            Exiting += delegate { writer.Dispose(); };
 
             trayIcon.AddContextMenuItem("Open &output file", delegate { Process.Start(Path.GetFullPath(fileName)); });
         }
 
-        private static void AddErrorOutput(Process process, ProcessTrayIcon trayIcon, string fileName)
+        private void AddErrorOutput(Process process, ProcessTrayIcon trayIcon, string fileName)
         {
             var writer = new StreamWriter(fileName) { AutoFlush = true };
-            process.ErrorDataReceived += (sender, e) => writer.WriteLine(e.Data);
+            process.ErrorDataReceived += (sender, e) =>
+            {
+                if (!string.IsNullOrEmpty(e.Data))
+                    writer.WriteLine(e.Data);
+            };
 
-            try
-            {
-                process.BeginOutputReadLine();
-            }
-            catch (InvalidOperationException)
-            {
-                /* ignored */
-            }
+            Exiting += delegate { writer.Dispose(); };
 
             trayIcon.AddContextMenuItem("Open &error file", delegate { Process.Start(Path.GetFullPath(fileName)); });
         }
 
+        private void OnStarting()
+        {
+            Starting?.Invoke(this, EventArgs.Empty);
+
+            _icon.Show();
+            _process.Start();
+            _process.BeginOutputReadLine();
+            _process.BeginErrorReadLine();
+            Application.Run();
+        }
+
+        public event EventHandler Starting;
+
+        private void OnExiting()
+        {
+            Exiting?.Invoke(this, EventArgs.Empty);
+
+            _icon.Hide();
+            Application.Exit();
+        }
+
+        public event EventHandler Exiting;
+
+        bool IMessageFilter.PreFilterMessage(ref Message m)
+        {
+            if (!_running) OnExiting();
+            return false;
+        }
+
         public NoCMDApplication(Config config)
         {
-            _startInfo = new ProcessStartInfo(
+            Application.AddMessageFilter(this);
+
+            var startInfo = new ProcessStartInfo(
                 Environment.ExpandEnvironmentVariables("%comspec%"),
                 "/s /c " + "\"" + config.Command + "\"")
             {
@@ -94,34 +129,29 @@ namespace NoCMD
                 RedirectStandardOutput = true,
             };
 
-            _runConfigurations.Add((process, icon) => AddTooltip(process, icon, config.Command));
-            _runConfigurations.Add((process, icon) => AddErrorBalloon(process, icon));
+            _process = new Process { StartInfo = startInfo };
+            _icon = new ProcessTrayIcon(_process, _process.StartInfo);
 
+            AddTooltip(_process, _icon, config.Command);
+            AddErrorBalloon(_process, _icon);
+            AddExitCodeBalloon(_process, _icon);
             if (config.OutFileName != null)
-                _runConfigurations.Add((process, icon) => AddStandardOutput(process, icon, config.OutFileName));
+                AddStandardOutput(_process, _icon, config.OutFileName);
             if (config.ErrorFileName != null)
-                _runConfigurations.Add((process, icon) => AddErrorOutput(process, icon, config.ErrorFileName));
+                AddErrorOutput(_process, _icon, config.ErrorFileName);
         }
 
         public void Run()
         {
-            var process = Process.Start(_startInfo);
-            var icon = new ProcessTrayIcon(process);
-
-            foreach (var configuration in _runConfigurations)
-                configuration(process, icon);
-
-            process.EnableRaisingEvents = true;
-            process.Exited += delegate
+            _process.EnableRaisingEvents = true;
+            _process.Exited += async delegate
             {
-                icon.Dispose();
-                Application.Exit();
+                await Task.Delay(TimeSpan.FromSeconds(3));
+                _running = false;
             };
 
-            icon.Show();
-            Application.Run();
-
-            if (process.ExitCode != 0) throw new NonzeroProcessExitCodeException(process.ExitCode);
+            _running = true;
+            OnStarting();
         }
     }
 }

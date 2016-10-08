@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using NoCMD.Exceptions;
 
@@ -8,14 +9,6 @@ namespace NoCMD
 {
     internal static class Program
     {
-        private static bool IsConsoleAttached()
-        {
-            var attached = true;
-            try { GC.KeepAlive(Console.WindowHeight); }
-            catch { attached = false; }
-            return attached;
-        }
-
         private static void RunWrapper(string commandLine)
         {
             Process.Start(new ProcessStartInfo
@@ -28,27 +21,22 @@ namespace NoCMD
         }
 
         [STAThread]
-        private static int Main(string[] args)
+        private static void Main(string[] args)
         {
             try
             {
                 var config = Config.ParseCommandLine(args);
 
-                if (string.IsNullOrEmpty(config.Command))
-                    return 0; // Todo: add help output
+                if (string.IsNullOrEmpty(config.Command)) return; // Todo: add help output
 
                 if (config.WaitForExit)
                     new NoCMDApplication(config).Run();
                 else
                     RunWrapper(string.Join(" ", args.Select(arg => "\"" + arg + "\"")));
-
-                return 0;
             }
             catch (Exception e)
             {
-                if (IsConsoleAttached()) Console.Error.WriteLine(e.Message);
-                else MessageBox.Show(e.Message, "NoCMD: " + e.GetType());
-                return (e as NonzeroProcessExitCodeException)?.ExitCode ?? -1;
+                MessageBox.Show(e.Message, $"NoCMD: Internal Error ({e.GetType().Name})");
             }
         }
     }

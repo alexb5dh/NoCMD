@@ -7,17 +7,16 @@ using NoCMD.Extensions;
 
 namespace NoCMD
 {
-    public sealed class ProcessTrayIcon: IDisposable
+    public sealed class ProcessTrayIcon
     {
-        // Todo: rename Notify
         private readonly NotifyIcon _internal;
 
-        public ProcessTrayIcon(Process process)
+        public ProcessTrayIcon(Process process, ProcessStartInfo startInfo)
         {
             _internal = new NotifyIcon
             {
-                Text = Path.GetFileNameWithoutExtension(process.MainModule.ModuleName),
-                Icon = Icon.ExtractAssociatedIcon(process.MainModule.FileName),
+                Text = Path.GetFileNameWithoutExtension(startInfo.FileName),
+                Icon = Icon.ExtractAssociatedIcon(Path.GetFullPath(startInfo.FileName)),
                 ContextMenu = new ContextMenu
                 {
                     MenuItems =
@@ -61,9 +60,9 @@ namespace NoCMD
             _internal.Visible = true;
         }
 
-        public void Dispose()
+        public void Hide()
         {
-            _internal.Dispose();
+            _internal.Visible = false;
         }
     }
 }
